@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+  <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="CPaaS Android Gateway"
+      android:textSize="22sp"
+      android:textStyle="bold" />
+
+  <EditText
+      android:id="@+id/apiBase"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="16dp"
+      android:hint="API base URL" />
+
+  <EditText
+      android:id="@+id/apiKey"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:hint="Project API key sk_test_..." />
+
+  <EditText
+      android:id="@+id/deviceName"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:hint="Device name" />
+
+  <Button
+      android:id="@+id/registerBtn"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="12dp"
+      android:text="Register device" />
+
+  <Button
+      android:id="@+id/startBtn"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="Start gateway service" />
+
+  <TextView
+      android:id="@+id/status"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="16dp"
+      android:text="Not registered" />
+</LinearLayout>

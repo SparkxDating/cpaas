@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: cpaas-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:3001", "host.docker.internal:3001"]

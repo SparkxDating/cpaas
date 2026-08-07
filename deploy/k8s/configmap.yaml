@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cpaas-config
+  namespace: cpaas
+data:
+  NODE_ENV: "production"
+  API_URL: "http://api.cpaas.svc.cluster.local:3001"
+  OTEL_SERVICE_NAME: "cpaas-api"
+  LOG_LEVEL: "info"

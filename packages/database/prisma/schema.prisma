@@ -1,0 +1,968 @@
+// =============================================================================
+// CPaaS — Production Prisma schema
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  DEVELOPER
+  BILLING
+  VIEWER
+}
+
+enum ProjectEnv {
+  TEST
+  LIVE
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  DISABLED
+  REVOKED
+}
+
+enum WalletTxnType {
+  CREDIT
+  DEBIT
+  HOLD
+  RELEASE
+  REFUND
+  ADJUSTMENT
+}
+
+enum MessageChannel {
+  SMS
+  MMS
+  WHATSAPP
+  RCS
+}
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageStatus {
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+  UNDELIVERED
+  REJECTED
+  SCHEDULED
+}
+
+enum VerificationChannel {
+  SMS
+  WHATSAPP
+  VOICE
+  EMAIL
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  EXPIRED
+  MAX_ATTEMPTS
+  CANCELED
+}
+
+enum CallStatus {
+  QUEUED
+  RINGING
+  IN_PROGRESS
+  COMPLETED
+  BUSY
+  FAILED
+  NO_ANSWER
+  CANCELED
+}
+
+enum EmailStatus {
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  BOUNCED
+  FAILED
+  COMPLAINED
+}
+
+enum ProviderType {
+  SMS
+  VOICE
+  EMAIL
+  WHATSAPP
+  RCS
+  MULTI
+}
+
+enum ProviderName {
+  ANDROID_GATEWAY
+  MSG91
+  SPRINGEDGE
+  EXOTEL
+  TWILIO
+  VONAGE
+  PLIVO
+  TEXTBEE
+  SMTP
+  SES
+  MAILGUN
+  SENDGRID
+  CUSTOM
+}
+
+enum WebhookStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  DLQ
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  DISABLED
+  PENDING
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  API_CALL
+  KEY_ROTATE
+  KEY_DISABLE
+  INVITE
+  BILLING
+  SECURITY
+}
+
+// -----------------------------------------------------------------------------
+// Identity & access
+// -----------------------------------------------------------------------------
+
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  emailVerifiedAt   DateTime?
+  passwordHash      String
+  name              String?
+  avatarUrl         String?
+  status            UserStatus @default(ACTIVE)
+  mfaEnabled        Boolean    @default(false)
+  mfaSecretEnc      String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  memberships       Membership[]
+  refreshTokens     RefreshToken[]
+  passwordResets    PasswordReset[]
+  emailVerifications EmailVerification[]
+  auditLogs         AuditLog[]           @relation("AuditActor")
+  ownedOrgs         Organization[]       @relation("OrgOwner")
+  invitesSent       OrgInvite[]          @relation("InviteSender")
+
+  @@index([status])
+  @@map("users")
+}
+
+model RefreshToken {
+  id              String    @id @default(cuid())
+  userId          String
+  tokenHash       String    @unique
+  familyId        String
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  userAgent       String?
+  ipAddress       String?
+  createdAt       DateTime  @default(now())
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_resets")
+}
+
+model EmailVerification {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verifications")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// -----------------------------------------------------------------------------
+// Organizations & projects
+// -----------------------------------------------------------------------------
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  ownerId     String
+  billingEmail String?
+  country     String?  @db.Char(2)
+  timezone    String   @default("UTC")
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner       User     @relation("OrgOwner", fields: [ownerId], references: [id])
+  members     Membership[]
+  invites     OrgInvite[]
+  projects    Project[]
+  wallet      Wallet?
+  invoices    Invoice[]
+  payments    Payment[]
+  auditLogs   AuditLog[]
+
+  @@index([ownerId])
+  @@map("organizations")
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrgRole  @default(DEVELOPER)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("members")
+}
+
+model OrgInvite {
+  id             String    @id @default(cuid())
+  organizationId String
+  email          String
+  role           OrgRole   @default(DEVELOPER)
+  tokenHash      String    @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy      User         @relation("InviteSender", fields: [invitedById], references: [id])
+
+  @@index([organizationId, email])
+  @@map("org_invites")
+}
+
+model Project {
+  id             String     @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  environment    ProjectEnv @default(TEST)
+  defaultCountry String?    @db.Char(2)
+  webhookSecret  String
+  rateLimitRpm   Int        @default(120)
+  metadata       Json?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apiKeys        ApiKey[]
+  routes         Route[]
+  messages       Message[]
+  verifications  Verification[]
+  calls          Call[]
+  emails         EmailMessage[]
+  phoneNumbers   PhoneNumber[]
+  webhooks       Webhook[]
+  usageRecords   UsageRecord[]
+  otpTemplates   OtpTemplate[]
+  devices        Device[]
+  logs           RequestLog[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@map("projects")
+}
+
+// -----------------------------------------------------------------------------
+// API keys
+// -----------------------------------------------------------------------------
+
+model ApiKey {
+  id          String       @id @default(cuid())
+  projectId   String
+  name        String
+  prefix      String
+  keyHash     String       @unique
+  lastFour    String
+  environment ProjectEnv
+  status      ApiKeyStatus @default(ACTIVE)
+  scopes      String[]
+  rateLimitRpm Int?
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  revokedAt   DateTime?
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  usageLogs   ApiKeyUsage[]
+
+  @@index([projectId, status])
+  @@index([prefix])
+  @@map("api_keys")
+}
+
+model ApiKeyUsage {
+  id        String   @id @default(cuid())
+  apiKeyId  String
+  method    String
+  path      String
+  status    Int
+  ipAddress String?
+  userAgent String?
+  latencyMs Int?
+  createdAt DateTime @default(now())
+
+  apiKey    ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@index([apiKeyId, createdAt])
+  @@map("api_key_usage")
+}
+
+// -----------------------------------------------------------------------------
+// Billing
+// -----------------------------------------------------------------------------
+
+model Wallet {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  currency       String   @default("USD") @db.Char(3)
+  balanceMinor   BigInt   @default(0)
+  holdMinor      BigInt   @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions   WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id            String        @id @default(cuid())
+  walletId      String
+  type          WalletTxnType
+  amountMinor   BigInt
+  balanceAfter  BigInt
+  currency      String        @db.Char(3)
+  description   String?
+  referenceType String?
+  referenceId   String?
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+
+  wallet        Wallet        @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, createdAt])
+  @@index([referenceType, referenceId])
+  @@map("transactions")
+}
+
+model PricingPlan {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  description   String?
+  currency      String   @default("USD") @db.Char(3)
+  smsPriceMinor Int      @default(1)
+  mmsPriceMinor Int      @default(3)
+  voicePriceMinor Int    @default(2)
+  emailPriceMinor Int    @default(0)
+  otpPriceMinor Int      @default(1)
+  isActive      Boolean  @default(true)
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("pricing_plans")
+}
+
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  percentOff      Int?
+  amountOffMinor  Int?
+  currency        String?   @db.Char(3)
+  maxRedemptions  Int?
+  redeemedCount   Int       @default(0)
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  @@map("coupons")
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  organizationId String
+  number         String        @unique
+  status         InvoiceStatus @default(DRAFT)
+  currency       String        @db.Char(3)
+  subtotalMinor  BigInt        @default(0)
+  taxMinor       BigInt        @default(0)
+  totalMinor     BigInt        @default(0)
+  periodStart    DateTime
+  periodEnd      DateTime
+  dueAt          DateTime?
+  paidAt         DateTime?
+  lineItems      Json
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payments       Payment[]
+
+  @@index([organizationId, status])
+  @@map("invoices")
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  organizationId String
+  invoiceId      String?
+  status         PaymentStatus @default(PENDING)
+  amountMinor    BigInt
+  currency       String        @db.Char(3)
+  provider       String?
+  providerRef    String?
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice        Invoice?      @relation(fields: [invoiceId], references: [id])
+
+  @@index([organizationId])
+  @@map("payments")
+}
+
+model UsageRecord {
+  id           String   @id @default(cuid())
+  projectId    String
+  product      String
+  quantity     Int      @default(1)
+  unitPriceMinor Int    @default(0)
+  totalMinor   Int      @default(0)
+  currency     String   @db.Char(3)
+  resourceId   String?
+  country      String?  @db.Char(2)
+  provider     String?
+  metadata     Json?
+  recordedAt   DateTime @default(now())
+
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, recordedAt])
+  @@index([product, recordedAt])
+  @@map("usage")
+}
+
+// -----------------------------------------------------------------------------
+// Providers & routing
+// -----------------------------------------------------------------------------
+
+model Provider {
+  id            String       @id @default(cuid())
+  name          ProviderName @unique
+  type          ProviderType
+  displayName   String
+  isActive      Boolean      @default(true)
+  basePriority  Int          @default(100)
+  configEnc     String?
+  healthScore   Float        @default(1.0)
+  successRate   Float        @default(1.0)
+  avgLatencyMs  Int          @default(0)
+  lastHealthAt  DateTime?
+  metadata      Json?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  routes        Route[]
+  messages      Message[]
+  calls         Call[]
+  emails        EmailMessage[]
+
+  @@map("providers")
+}
+
+model Route {
+  id            String   @id @default(cuid())
+  projectId     String
+  providerId    String
+  channel       MessageChannel
+  country       String?  @db.Char(2)
+  priority      Int      @default(100)
+  weight        Int      @default(100)
+  costMinor     Int      @default(1)
+  isActive      Boolean  @default(true)
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  provider      Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, channel, country, priority])
+  @@map("routes")
+}
+
+// -----------------------------------------------------------------------------
+// Communications
+// -----------------------------------------------------------------------------
+
+model Message {
+  id              String           @id @default(cuid())
+  projectId       String
+  providerId      String?
+  deviceId        String?
+  channel         MessageChannel
+  direction       MessageDirection @default(OUTBOUND)
+  status          MessageStatus    @default(QUEUED)
+  fromNumber      String?
+  toNumber        String
+  body            String?
+  mediaUrls       String[]
+  segments        Int              @default(1)
+  country         String?          @db.Char(2)
+  providerMessageId String?
+  errorCode       String?
+  errorMessage    String?
+  priceMinor      Int?
+  currency        String?          @db.Char(3)
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  provider        Provider?        @relation(fields: [providerId], references: [id])
+  device          Device?          @relation(fields: [deviceId], references: [id])
+
+  @@index([projectId, createdAt])
+  @@index([status, scheduledAt])
+  @@index([toNumber])
+  @@index([providerMessageId])
+  @@map("messages")
+}
+
+model OtpTemplate {
+  id          String              @id @default(cuid())
+  projectId   String
+  name        String
+  channel     VerificationChannel
+  body        String
+  locale      String              @default("en")
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  verifications Verification[]
+
+  @@unique([projectId, name, channel])
+  @@map("otp_templates")
+}
+
+model Verification {
+  id            String             @id @default(cuid())
+  projectId     String
+  templateId    String?
+  channel       VerificationChannel
+  status        VerificationStatus @default(PENDING)
+  to            String
+  otpHash       String
+  attempts      Int                @default(0)
+  maxAttempts   Int                @default(5)
+  sendCount     Int                @default(1)
+  maxSends      Int                @default(3)
+  expiresAt     DateTime
+  approvedAt    DateTime?
+  messageId     String?
+  metadata      Json?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  project       Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  template      OtpTemplate?       @relation(fields: [templateId], references: [id])
+
+  @@index([projectId, status])
+  @@index([to, createdAt])
+  @@map("verifications")
+}
+
+model Call {
+  id              String     @id @default(cuid())
+  projectId       String
+  providerId      String?
+  status          CallStatus @default(QUEUED)
+  direction       String     @default("outbound")
+  fromNumber      String?
+  toNumber        String
+  durationSec     Int?
+  recordingUrl    String?
+  conferenceName  String?
+  providerCallId  String?
+  errorCode       String?
+  errorMessage    String?
+  priceMinor      Int?
+  currency        String?    @db.Char(3)
+  metadata        Json?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  project         Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  provider        Provider?  @relation(fields: [providerId], references: [id])
+
+  @@index([projectId, createdAt])
+  @@index([providerCallId])
+  @@map("calls")
+}
+
+model EmailMessage {
+  id              String      @id @default(cuid())
+  projectId       String
+  providerId      String?
+  status          EmailStatus @default(QUEUED)
+  fromEmail       String
+  toEmail         String
+  cc              String[]
+  bcc             String[]
+  subject         String
+  htmlBody        String?
+  textBody        String?
+  templateId      String?
+  attachments     Json?
+  providerMessageId String?
+  errorMessage    String?
+  priceMinor      Int?
+  currency        String?     @db.Char(3)
+  sentAt          DateTime?
+  metadata        Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  provider        Provider?   @relation(fields: [providerId], references: [id])
+
+  @@index([projectId, createdAt])
+  @@map("emails")
+}
+
+model PhoneNumber {
+  id           String   @id @default(cuid())
+  projectId    String
+  e164         String
+  country      String   @db.Char(2)
+  capabilities String[]
+  providerName ProviderName?
+  monthlyPriceMinor Int @default(0)
+  isActive     Boolean  @default(true)
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, e164])
+  @@index([e164])
+  @@map("phone_numbers")
+}
+
+// -----------------------------------------------------------------------------
+// Webhooks
+// -----------------------------------------------------------------------------
+
+model Webhook {
+  id          String        @id @default(cuid())
+  projectId   String
+  url         String
+  secret      String
+  events      String[]
+  status      WebhookStatus @default(ACTIVE)
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deliveries  WebhookDelivery[]
+
+  @@index([projectId, status])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id           String                @id @default(cuid())
+  webhookId    String
+  event        String
+  payload      Json
+  status       WebhookDeliveryStatus @default(PENDING)
+  attempts     Int                   @default(0)
+  maxAttempts  Int                   @default(8)
+  nextRetryAt  DateTime?
+  lastStatus   Int?
+  lastError    String?
+  responseBody String?
+  signature    String?
+  idempotencyKey String              @unique
+  deliveredAt  DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  webhook      Webhook               @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextRetryAt])
+  @@index([webhookId, createdAt])
+  @@map("webhook_deliveries")
+}
+
+// -----------------------------------------------------------------------------
+// Android gateway devices
+// -----------------------------------------------------------------------------
+
+model Device {
+  id              String       @id @default(cuid())
+  projectId       String
+  name            String
+  deviceTokenHash String       @unique
+  deviceTokenPrefix String
+  status          DeviceStatus @default(PENDING)
+  platform        String       @default("android")
+  appVersion      String?
+  osVersion       String?
+  model           String?
+  manufacturer    String?
+  batteryPercent  Int?
+  isCharging      Boolean?
+  networkType     String?
+  signalStrength  Int?
+  simOperator     String?
+  simNumber       String?
+  lastHeartbeatAt DateTime?
+  config          Json?
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages        Message[]
+  outbox          DeviceOutbox[]
+  inbox           DeviceInbox[]
+
+  @@index([projectId, status])
+  @@map("devices")
+}
+
+model DeviceOutbox {
+  id          String        @id @default(cuid())
+  deviceId    String
+  messageId   String?
+  toNumber    String
+  body        String
+  status      MessageStatus @default(QUEUED)
+  attempts    Int           @default(0)
+  maxAttempts Int           @default(5)
+  lastError   String?
+  sentAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  device      Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, status])
+  @@map("device_outbox")
+}
+
+model DeviceInbox {
+  id          String   @id @default(cuid())
+  deviceId    String
+  fromNumber  String
+  body        String
+  receivedAt  DateTime
+  createdAt   DateTime @default(now())
+
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, receivedAt])
+  @@map("device_inbox")
+}
+
+// -----------------------------------------------------------------------------
+// Observability / audit
+// -----------------------------------------------------------------------------
+
+model RequestLog {
+  id          String   @id @default(cuid())
+  projectId   String?
+  method      String
+  path        String
+  statusCode  Int
+  latencyMs   Int
+  ipAddress   String?
+  userAgent   String?
+  apiKeyId    String?
+  userId      String?
+  requestId   String?
+  error       String?
+  createdAt   DateTime @default(now())
+
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([createdAt])
+  @@map("logs")
+}
+
+model AuditLog {
+  id             String      @id @default(cuid())
+  organizationId String?
+  actorUserId    String?
+  action         AuditAction
+  resourceType   String
+  resourceId     String?
+  ipAddress      String?
+  userAgent      String?
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor          User?         @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String?
+  orgId     String?
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([orgId, createdAt])
+  @@map("notifications")
+}

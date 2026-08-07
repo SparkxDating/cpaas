@@ -1,0 +1,10 @@
+{
+  "name": "@cpaas/docs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve public -p 3003",
+    "build": "node -e \"console.log('static docs')\"",
+    "start": "npx serve public -p 3003"
+  }
+}

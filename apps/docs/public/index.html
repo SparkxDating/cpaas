@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CPaaS Docs</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; background: #0b1220; color: #e5eefc; }
+      main { max-width: 880px; margin: 0 auto; padding: 48px 20px; }
+      a { color: #60a5fa; }
+      code { background: #1e293b; padding: 2px 6px; border-radius: 6px; }
+      pre { background: #111827; padding: 16px; border-radius: 12px; overflow: auto; }
+      h1 { font-size: 2.2rem; }
+      h2 { margin-top: 2rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>CPaaS Developer Docs</h1>
+      <p>Open-source Communications Platform as a Service. Interactive OpenAPI lives at <a href="http://localhost:3001/docs">/docs</a> on the API.</p>
+      <h2>Authentication</h2>
+      <pre>X-Api-Key: sk_test_xxxxx
+# or
+Authorization: Bearer &lt;jwt&gt;</pre>
+      <h2>Verify</h2>
+      <pre>POST /v1/verify/send
+{ "to": "+15551234567", "channel": "SMS" }
+
+POST /v1/verify/check
+{ "id": "clx...", "code": "123456" }</pre>
+      <h2>Messages</h2>
+      <pre>POST /v1/messages
+{ "to": "+15551234567", "body": "Hello from CPaaS" }</pre>
+      <h2>Android Gateway</h2>
+      <p>Register a device with a project API key, then authenticate device calls with <code>X-Device-Token</code>.</p>
+      <ul>
+        <li><code>POST /v1/device/register</code></li>
+        <li><code>POST /v1/device/heartbeat</code></li>
+        <li><code>GET /v1/device/outbox</code></li>
+        <li><code>POST /v1/device/send</code></li>
+        <li><code>POST /v1/device/inbox</code></li>
+      </ul>
+    </main>
+  </body>
+</html>

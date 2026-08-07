@@ -1,0 +1,42 @@
+{
+  "name": "cpaas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Open-source Communications Platform as a Service (CPaaS)",
+  "packageManager": "npm@11.16.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:generate": "npm run generate -w @cpaas/database",
+    "db:migrate": "npm run migrate -w @cpaas/database",
+    "db:seed": "npm run seed -w @cpaas/database",
+    "db:studio": "npm run studio -w @cpaas/database",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "clean": "turbo run clean && rimraf node_modules"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "rimraf": "^6.0.1",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "@scarf/scarf@1.4.0": true,
+    "argon2@0.43.1": true,
+    "esbuild@0.28.1": true,
+    "msgpackr-extract@3.0.4": true,
+    "prisma@6.19.3": true,
+    "sharp@0.34.5": true
+  }
+}

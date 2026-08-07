@@ -1,0 +1,28 @@
+{
+  "name": "@cpaas/worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@cpaas/auth": "*",
+    "@cpaas/common": "*",
+    "@cpaas/database": "*",
+    "@cpaas/events": "*",
+    "@cpaas/logger": "*",
+    "bullmq": "^5.53.2",
+    "dotenv": "^17.4.1",
+    "ioredis": "^5.6.1",
+    "nodemailer": "^7.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/nodemailer": "^6.4.17",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
