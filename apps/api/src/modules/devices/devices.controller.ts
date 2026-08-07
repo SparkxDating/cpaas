@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiSecurity, ApiTags } from "@nestjs/swagger";
 import {
   IsArray,
@@ -163,8 +163,12 @@ export class DevicesController {
   @ApiBearerAuth()
   @ApiSecurity("api-key")
   @Get()
-  list(@CurrentAuth() auth: AuthContext) {
-    if (!auth.projectId) throw new AppError("project_required", "projectId required", 400);
-    return this.devices.list(auth.projectId).then((data) => ({ data }));
+  list(
+    @CurrentAuth() auth: AuthContext,
+    @Query("projectId") projectId?: string
+  ) {
+    const pid = projectId ?? auth.projectId;
+    if (!pid) throw new AppError("project_required", "projectId required", 400);
+    return this.devices.list(pid).then((data) => ({ data }));
   }
 }

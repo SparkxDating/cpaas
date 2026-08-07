@@ -8,6 +8,24 @@ import { PrismaService } from "../prisma/prisma.service";
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Friendly root for phone/browser checks (LAN IP:3001). */
+  @Public()
+  @Get()
+  root() {
+    return {
+      service: "cpaas-api",
+      status: "ok",
+      message: "CPaaS API is reachable",
+      links: {
+        health: "/health",
+        docs: "/docs",
+        verifySend: "POST /v1/verify/send",
+        messages: "POST /v1/messages",
+        deviceRegister: "POST /v1/device/register",
+      },
+    };
+  }
+
   @Public()
   @Get("health")
   async health() {

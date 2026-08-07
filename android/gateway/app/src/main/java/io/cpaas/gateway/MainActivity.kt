@@ -15,10 +15,14 @@ import io.cpaas.gateway.api.CpaasApi
 import io.cpaas.gateway.service.GatewayForegroundService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
+  private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContentView(R.layout.activity_main)
@@ -34,15 +38,28 @@ class MainActivity : AppCompatActivity() {
     apiBase.setText(app.tokenStore.apiBase)
     apiKey.setText(app.tokenStore.projectApiKey.orEmpty())
     deviceName.setText(app.tokenStore.deviceName ?: Build.MODEL)
-    status.text = if (app.tokenStore.deviceToken != null) "Registered: ${app.tokenStore.deviceId}" else "Not registered"
+    refreshStatus(status, app)
 
     requestSmsPermissions()
 
     registerBtn.setOnClickListener {
-      val base = apiBase.text.toString().trim()
+      val base = apiBase.text.toString().trim().trimEnd('/')
       val key = apiKey.text.toString().trim()
       val name = deviceName.text.toString().trim().ifBlank { Build.MODEL }
-      CoroutineScope(Dispatchers.Main).launch {
+
+      if (base.isBlank() || key.isBlank()) {
+        Toast.makeText(this, "API base and API key are required", Toast.LENGTH_SHORT).show()
+        return@setOnClickListener
+      }
+      if (!base.startsWith("http://") && !base.startsWith("https://")) {
+        Toast.makeText(this, "API base must start with http:// or https://", Toast.LENGTH_LONG).show()
+        return@setOnClickListener
+      }
+
+      registerBtn.isEnabled = false
+      status.text = "Registering…"
+
+      uiScope.launch {
         try {
           val res = withContext(Dispatchers.IO) {
             CpaasApi(base).register(key, name, Build.MODEL, Build.MANUFACTURER)
@@ -52,10 +69,13 @@ class MainActivity : AppCompatActivity() {
           app.tokenStore.deviceName = name
           app.tokenStore.deviceToken = res.getString("deviceToken")
           app.tokenStore.deviceId = res.getString("id")
-          status.text = "Registered: ${app.tokenStore.deviceId}"
-          Toast.makeText(this@MainActivity, "Device registered", Toast.LENGTH_SHORT).show()
+          refreshStatus(status, app)
+          Toast.makeText(this@MainActivity, "Device registered — tap Start gateway", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-          Toast.makeText(this@MainActivity, e.message, Toast.LENGTH_LONG).show()
+          status.text = "Register failed: ${e.message}"
+          Toast.makeText(this@MainActivity, e.message ?: "Register failed", Toast.LENGTH_LONG).show()
+        } finally {
+          registerBtn.isEnabled = true
         }
       }
     }
@@ -66,7 +86,17 @@ class MainActivity : AppCompatActivity() {
         return@setOnClickListener
       }
       GatewayForegroundService.start(this)
-      status.text = "Gateway service started"
+      status.text = "Gateway running. Heartbeat every 5s.\nDevice: ${app.tokenStore.deviceId}"
+      Toast.makeText(this, "Gateway service started", Toast.LENGTH_SHORT).show()
+    }
+  }
+
+  private fun refreshStatus(status: TextView, app: CpaasApp) {
+    val id = app.tokenStore.deviceId
+    status.text = if (id != null) {
+      "Registered: $id\nAPI: ${app.tokenStore.apiBase}\nNext: Start gateway service"
+    } else {
+      getString(R.string.status_not_registered)
     }
   }
 
@@ -86,5 +116,10 @@ class MainActivity : AppCompatActivity() {
     if (missing.isNotEmpty()) {
       ActivityCompat.requestPermissions(this, missing.toTypedArray(), 1001)
     }
+  }
+
+  override fun onDestroy() {
+    uiScope.cancel()
+    super.onDestroy()
   }
 }

@@ -89,6 +89,14 @@ export class MessagingService {
       return failed;
     }
 
+    const deviceIdFromRaw =
+      decision.providerName === "ANDROID_GATEWAY" &&
+      result.raw &&
+      typeof result.raw === "object" &&
+      "deviceId" in result.raw
+        ? String((result.raw as { deviceId: string }).deviceId)
+        : undefined;
+
     const updated = await this.prisma.message.update({
       where: { id: message.id },
       data: {
@@ -103,16 +111,27 @@ export class MessagingService {
         priceMinor: decision.costMinor,
         currency: "USD",
         sentAt: result.status === "failed" ? null : new Date(),
-        errorMessage: result.status === "failed" ? "provider_failed" : null,
-        deviceId:
-          decision.providerName === "ANDROID_GATEWAY" &&
-          result.raw &&
-          typeof result.raw === "object" &&
-          "deviceId" in result.raw
-            ? String((result.raw as { deviceId: string }).deviceId)
-            : undefined,
+        errorMessage:
+          result.status === "failed"
+            ? String(
+                (result.raw as { error?: string } | undefined)?.error ??
+                  "provider_failed"
+              )
+            : null,
+        deviceId: deviceIdFromRaw,
       },
     });
+
+    // Link outbox row back to the message so device delivery reports update it
+    if (
+      decision.providerName === "ANDROID_GATEWAY" &&
+      result.providerMessageId
+    ) {
+      await this.prisma.deviceOutbox.updateMany({
+        where: { id: result.providerMessageId },
+        data: { messageId: updated.id },
+      });
+    }
 
     await this.prisma.usageRecord.create({
       data: {

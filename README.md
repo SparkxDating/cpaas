@@ -33,6 +33,10 @@ deploy/
   otel         OpenTelemetry collector
 ```
 
+## Resume on another machine
+
+See **[`CONTINUE.md`](CONTINUE.md)** for handoff status, seed logins, LAN/phone checks, and Android gateway pairing steps.
+
 ## Quick start (local)
 
 ### Prerequisites

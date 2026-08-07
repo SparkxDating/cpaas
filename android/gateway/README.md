@@ -1,48 +1,122 @@
 # CPaaS Android SMS Gateway
 
-Kotlin Android application that turns a phone into a production SMS gateway for CPaaS.
+Turn a physical Android phone into an SMS gateway for CPaaS.
 
-## Features
+When the device is **ONLINE** (heartbeat &lt; 2 minutes), the provider router prefers **ANDROID_GATEWAY** over commercial SMS providers.
 
-- Login / project API key pairing
-- Device registration (`POST /v1/device/register`)
-- Unique device token storage (EncryptedSharedPreferences)
-- Foreground service + heartbeat
-- Outbox polling / WebSocket-ready REST fallback
-- Send SMS + delivery callbacks
-- Incoming SMS → inbox upload
-- Battery, SIM, signal, network telemetry
-- Offline queue + retry
-- Boot receiver + auto-start
-- Remote configuration from heartbeat response
+---
 
-## Project layout
+## Prerequisites
 
-```
-android/gateway/
-  app/src/main/java/io/cpaas/gateway/
-    MainActivity.kt
-    CpaasApp.kt
-    api/CpaasApi.kt
-    service/GatewayForegroundService.kt
-    sms/SmsSender.kt
-    sms/SmsReceiver.kt
-    boot/BootReceiver.kt
-    data/TokenStore.kt
-  app/src/main/AndroidManifest.xml
-  app/build.gradle.kts
-  settings.gradle.kts
-  build.gradle.kts
+- Android Studio (Hedgehog / Koala or newer)
+- Physical Android phone (SMS requires a real SIM — not an emulator)
+- USB debugging enabled
+- PC and phone on the **same Wi‑Fi**
+- CPaaS API running on your PC (`http://localhost:3001/health` → ok)
+
+---
+
+## 1. Get a project API key
+
+1. Open http://localhost:3000  
+2. Login: `dev@cpaas.local` / `ChangeMeDev123!`  
+3. **API Keys** → create a key → copy `sk_test_…`  
+
+---
+
+## 2. Find your PC LAN IP (Windows)
+
+```powershell
+ipconfig
 ```
 
-## Build
+Look for **Wireless LAN adapter Wi-Fi** → **IPv4 Address**, e.g. `192.168.1.14`.
 
-1. Open `android/gateway` in Android Studio (Hedgehog+).
-2. Set `CPAAS_API_BASE` in local properties or BuildConfig.
-3. Run on a physical device with SMS permission.
+API base on the phone:
 
-## Security
+```text
+http://192.168.1.14:3001
+```
 
-- Device token never logged
-- TLS only in production
-- Payload signatures optional via remote config `encryptPayloads`
+**Do not use** `localhost` or `127.0.0.1` on the phone (that points at the phone itself).  
+`10.0.2.2` only works for the **emulator**.
+
+Allow Windows Firewall for Node on private networks if registration fails.
+
+---
+
+## 3. Open & run the app
+
+1. Android Studio → **Open** → `<repo>/android/gateway`  
+   (open this folder only — not the monorepo root)  
+2. Wait for Gradle sync (Studio may download the Gradle wrapper)  
+3. Connect the phone via USB → enable file transfer / debugging  
+4. Run ▶ **app** on the physical device  
+
+---
+
+## 4. Pair the device
+
+In the app:
+
+| Field | Example |
+|--------|---------|
+| API base URL | `http://192.168.1.14:3001` |
+| Project API key | `sk_test_…` from dashboard |
+| Device name | My Pixel |
+
+1. Allow SMS / Phone / Notifications permissions  
+2. Tap **Register device**  
+3. Tap **Start gateway service**  
+4. Keep a persistent notification: gateway is running  
+
+---
+
+## 5. Confirm ONLINE
+
+- Customer dashboard → **Gateways** → device shows **ONLINE**  
+- Or Admin → **Devices** at http://localhost:3002  
+
+---
+
+## 6. Send SMS through the phone
+
+1. Dashboard → **Messaging**  
+2. Send to a real number you control  
+3. Phone should send the SMS within ~5 seconds (poll interval)  
+4. Message status updates when the device reports success  
+
+---
+
+## API surface (device auth)
+
+| Method | Path | Auth |
+|--------|------|------|
+| POST | `/v1/device/register` | `X-Api-Key` |
+| POST | `/v1/device/heartbeat` | `X-Device-Token` |
+| GET | `/v1/device/outbox` | `X-Device-Token` |
+| POST | `/v1/device/send` | `X-Device-Token` (delivery report) |
+| POST | `/v1/device/inbox` | `X-Device-Token` |
+| GET | `/v1/device/status` | `X-Device-Token` |
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Register timeout / connection refused | Wrong IP; API not running; firewall; use `http://` not `https://` for local |
+| `HTTP 401` | Bad API key or device token |
+| Device never ONLINE | Did not tap **Start gateway**; app killed by battery optimizer |
+| SMS not sending | Deny SMS permission; no SIM; dual-SIM default off |
+| Falls back to Twilio/MSG91 | No ONLINE gateway — start the service |
+
+Battery optimizers (Xiaomi/Oppo/Samsung) may kill the service — set the app to **Unrestricted**.
+
+---
+
+## Security notes
+
+- Device token stored in EncryptedSharedPreferences  
+- Treat `sk_test_` / `sk_live_` like passwords  
+- Production: use HTTPS and disable cleartext in `network_security_config.xml`

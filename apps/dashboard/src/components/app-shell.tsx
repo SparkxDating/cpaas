@@ -11,6 +11,7 @@ import { Alert, Button, Select, Spinner } from "./ui";
 const nav = [
   { href: "/app", label: "Overview", exact: true },
   { href: "/app/keys", label: "API Keys" },
+  { href: "/app/devices", label: "Gateways" },
   { href: "/app/verify", label: "Verify" },
   { href: "/app/messages", label: "Messaging" },
   { href: "/app/webhooks", label: "Webhooks" },

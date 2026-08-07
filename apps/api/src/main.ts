@@ -1,5 +1,5 @@
 import "./load-env";
-import { ValidationPipe } from "@nestjs/common";
+import { RequestMethod, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
@@ -20,7 +20,15 @@ async function bootstrap() {
   app.enableCors({ origin: origins, credentials: true });
 
   // Single /v1 prefix (do not also enable URI versioning or paths become /v1/v1/...)
-  app.setGlobalPrefix("v1", { exclude: ["health", "metrics", "docs", "docs-json"] });
+  app.setGlobalPrefix("v1", {
+    exclude: [
+      { path: "/", method: RequestMethod.GET },
+      { path: "health", method: RequestMethod.GET },
+      { path: "metrics", method: RequestMethod.GET },
+      { path: "docs", method: RequestMethod.ALL },
+      { path: "docs-json", method: RequestMethod.GET },
+    ],
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -45,9 +53,12 @@ async function bootstrap() {
   SwaggerModule.setup("docs", app, document);
 
   const port = Number(process.env.PORT ?? 3001);
-  await app.listen(port);
-  logger.info(`CPaaS API listening on :${port}`);
+  // Bind all interfaces so phones on the LAN can reach the API (not just 127.0.0.1)
+  const host = process.env.HOST ?? "0.0.0.0";
+  await app.listen(port, host);
+  logger.info(`CPaaS API listening on http://${host}:${port}`);
   logger.info(`Swagger docs at http://localhost:${port}/docs`);
+  logger.info(`Phone/LAN: use http://<this-pc-wifi-ip>:${port}/health`);
 }
 
 bootstrap().catch((err) => {

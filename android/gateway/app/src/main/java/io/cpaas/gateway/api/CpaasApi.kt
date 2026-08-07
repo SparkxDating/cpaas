@@ -12,9 +12,11 @@ class CpaasApi(private val baseUrl: String) {
   private val client = OkHttpClient.Builder()
     .connectTimeout(20, TimeUnit.SECONDS)
     .readTimeout(30, TimeUnit.SECONDS)
+    .writeTimeout(30, TimeUnit.SECONDS)
     .build()
 
   private val json = "application/json; charset=utf-8".toMediaType()
+  private val root = baseUrl.trimEnd('/')
 
   fun register(apiKey: String, name: String, model: String, manufacturer: String): JSONObject {
     val body = JSONObject()
@@ -26,14 +28,20 @@ class CpaasApi(private val baseUrl: String) {
       .toString()
       .toRequestBody(json)
     val req = Request.Builder()
-      .url("$baseUrl/v1/device/register")
+      .url("$root/v1/device/register")
       .addHeader("X-Api-Key", apiKey)
       .post(body)
       .build()
     return execute(req)
   }
 
-  fun heartbeat(deviceToken: String, battery: Int, charging: Boolean, networkType: String, signal: Int): JSONObject {
+  fun heartbeat(
+    deviceToken: String,
+    battery: Int,
+    charging: Boolean,
+    networkType: String,
+    signal: Int
+  ): JSONObject {
     val body = JSONObject()
       .put("batteryPercent", battery)
       .put("isCharging", charging)
@@ -42,7 +50,7 @@ class CpaasApi(private val baseUrl: String) {
       .toString()
       .toRequestBody(json)
     val req = Request.Builder()
-      .url("$baseUrl/v1/device/heartbeat")
+      .url("$root/v1/device/heartbeat")
       .addHeader("X-Device-Token", deviceToken)
       .post(body)
       .build()
@@ -51,7 +59,7 @@ class CpaasApi(private val baseUrl: String) {
 
   fun outbox(deviceToken: String): JSONArray {
     val req = Request.Builder()
-      .url("$baseUrl/v1/device/outbox")
+      .url("$root/v1/device/outbox")
       .addHeader("X-Device-Token", deviceToken)
       .get()
       .build()
@@ -61,7 +69,7 @@ class CpaasApi(private val baseUrl: String) {
   fun reportSend(deviceToken: String, items: JSONArray): JSONObject {
     val body = JSONObject().put("items", items).toString().toRequestBody(json)
     val req = Request.Builder()
-      .url("$baseUrl/v1/device/send")
+      .url("$root/v1/device/send")
       .addHeader("X-Device-Token", deviceToken)
       .post(body)
       .build()
@@ -71,7 +79,7 @@ class CpaasApi(private val baseUrl: String) {
   fun inbox(deviceToken: String, messages: JSONArray): JSONObject {
     val body = JSONObject().put("messages", messages).toString().toRequestBody(json)
     val req = Request.Builder()
-      .url("$baseUrl/v1/device/inbox")
+      .url("$root/v1/device/inbox")
       .addHeader("X-Device-Token", deviceToken)
       .post(body)
       .build()

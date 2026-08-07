@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">CPaaS Gateway</string>
+  <string name="hint_api_base">API base URL (e.g. http://192.168.1.14:3001)</string>
+  <string name="hint_api_key">Project API key sk_test_…</string>
+  <string name="hint_device_name">Device name</string>
+  <string name="register">Register device</string>
+  <string name="start_gateway">Start gateway service</string>
+  <string name="status_not_registered">Not registered</string>
+  <string name="channel_name">CPaaS Gateway</string>
+  <string name="notification_running">CPaaS SMS gateway is running</string>
+</resources>
