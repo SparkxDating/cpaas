@@ -37,6 +37,8 @@ deploy/
 
 See **[`CONTINUE.md`](CONTINUE.md)** for handoff status, seed logins, LAN/phone checks, and Android gateway pairing steps.
 
+Pair a phone from the customer dashboard (**Gateways** → generate a 10-minute pairing code) or with a project API key. Devices stay **PENDING** until the gateway service heartbeats, then **ONLINE**.
+
 ## Quick start (local)
 
 ### Prerequisites
@@ -93,6 +95,9 @@ POST /v1/messages
 POST /v1/calls
 POST /v1/email/send
 POST /v1/webhooks
+POST /v1/device/pairing-codes
+POST /v1/device/pair
+POST /v1/device/register
 ```
 
 Authenticate with:

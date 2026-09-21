@@ -47,5 +47,19 @@
     "ts-jest": "^29.3.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
+  },
+  "jest": {
+    "moduleFileExtensions": ["js", "json", "ts"],
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.ts$": ["ts-jest", { "isolatedModules": true }]
+    },
+    "moduleNameMapper": {
+      "^@cpaas/auth$": "<rootDir>/../../../packages/auth/src/index.ts",
+      "^@cpaas/common$": "<rootDir>/../../../packages/common/src/index.ts",
+      "^@cpaas/database$": "<rootDir>/../../../packages/database/src/index.ts"
+    },
+    "testEnvironment": "node"
   }
 }

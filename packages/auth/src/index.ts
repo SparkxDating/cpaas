@@ -149,6 +149,27 @@ export function hashDeviceToken(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
 }
 
+/** Ambiguous-character-free alphabet for phone typing (no 0/O/1/I). */
+export const PAIRING_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function normalizePairingCode(code: string): string {
+  return code.toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+export function generatePairingCode(length = 8): { raw: string; hash: string; prefix: string } {
+  const bytes = randomBytes(length);
+  let compact = "";
+  for (let i = 0; i < length; i++) {
+    compact += PAIRING_CODE_ALPHABET[bytes[i]! % PAIRING_CODE_ALPHABET.length];
+  }
+  const display = `${compact.slice(0, 4)}-${compact.slice(4)}`;
+  return {
+    raw: display,
+    prefix: compact.slice(0, 4),
+    hash: hashToken(compact),
+  };
+}
+
 export function randomUrlToken(): string {
   return randomBytes(32).toString("base64url");
 }

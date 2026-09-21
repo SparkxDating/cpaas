@@ -69,7 +69,8 @@ class GatewayForegroundService : Service() {
           battery = battery.coerceIn(0, 100),
           charging = charging,
           networkType = currentNetworkType(),
-          signal = 0
+          signal = 0,
+          simOperator = currentSimOperator()
         )
 
         val outbox = api.outbox(token)
@@ -100,6 +101,13 @@ class GatewayForegroundService : Service() {
       }
       delay(5_000)
     }
+  }
+
+  private fun currentSimOperator(): String? {
+    return runCatching {
+      val tm = getSystemService(Context.TELEPHONY_SERVICE) as android.telephony.TelephonyManager
+      tm.networkOperatorName?.takeIf { it.isNotBlank() }
+    }.getOrNull()
   }
 
   private fun currentNetworkType(): String {
@@ -142,6 +150,10 @@ class GatewayForegroundService : Service() {
       } else {
         context.startService(intent)
       }
+    }
+
+    fun stop(context: Context) {
+      context.stopService(Intent(context, GatewayForegroundService::class.java))
     }
   }
 }

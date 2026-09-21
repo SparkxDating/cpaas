@@ -2,11 +2,15 @@
 <resources>
   <string name="app_name">CPaaS Gateway</string>
   <string name="hint_api_base">API base URL (e.g. http://192.168.1.14:3001)</string>
-  <string name="hint_api_key">Project API key sk_test_…</string>
+  <string name="hint_pairing_code">Pairing code from dashboard (ABCD-EFGH)</string>
+  <string name="hint_api_key">Optional: project API key sk_test_…</string>
   <string name="hint_device_name">Device name</string>
-  <string name="register">Register device</string>
+  <string name="test_connection">Test connection</string>
+  <string name="pair">Pair with code</string>
+  <string name="register">Register with API key</string>
   <string name="start_gateway">Start gateway service</string>
-  <string name="status_not_registered">Not registered</string>
+  <string name="stop_gateway">Stop gateway</string>
+  <string name="status_not_registered">Not paired</string>
   <string name="channel_name">CPaaS Gateway</string>
   <string name="notification_running">CPaaS SMS gateway is running</string>
 </resources>

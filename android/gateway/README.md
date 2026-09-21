@@ -16,11 +16,14 @@ When the device is **ONLINE** (heartbeat &lt; 2 minutes), the provider router pr
 
 ---
 
-## 1. Get a project API key
+## 1. Get a pairing code (preferred)
 
 1. Open http://localhost:3000  
 2. Login: `dev@cpaas.local` / `ChangeMeDev123!`  
-3. **API Keys** → create a key → copy `sk_test_…`  
+3. **Gateways** → **Generate pairing code**  
+4. Copy a listed API base (`http://<LAN-IP>:3001`) and the code (`ABCD-EFGH`)
+
+You can still pair with an API key instead: **API Keys** → create a key → copy `sk_test_…`.  
 
 ---
 
@@ -62,13 +65,16 @@ In the app:
 | Field | Example |
 |--------|---------|
 | API base URL | `http://192.168.1.14:3001` |
-| Project API key | `sk_test_…` from dashboard |
+| Pairing code | `ABCD-EFGH` from dashboard |
 | Device name | My Pixel |
 
 1. Allow SMS / Phone / Notifications permissions  
-2. Tap **Register device**  
-3. Tap **Start gateway service**  
-4. Keep a persistent notification: gateway is running  
+2. Tap **Test connection** (must reach `/health`)  
+3. Tap **Pair with code** (or **Register with API key**)  
+4. Tap **Start gateway service**  
+5. Keep a persistent notification: gateway is running  
+
+The device stays **PENDING** until the first heartbeat, then **ONLINE**.  
 
 ---
 
@@ -92,6 +98,8 @@ In the app:
 
 | Method | Path | Auth |
 |--------|------|------|
+| POST | `/v1/device/pairing-codes` | JWT / `X-Api-Key` |
+| POST | `/v1/device/pair` | pairing code (public) |
 | POST | `/v1/device/register` | `X-Api-Key` |
 | POST | `/v1/device/heartbeat` | `X-Device-Token` |
 | GET | `/v1/device/outbox` | `X-Device-Token` |
@@ -106,7 +114,8 @@ In the app:
 | Problem | Fix |
 |---------|-----|
 | Register timeout / connection refused | Wrong IP; API not running; firewall; use `http://` not `https://` for local |
-| `HTTP 401` | Bad API key or device token |
+| `HTTP 401` | Bad API key, pairing code, or device token |
+| `HTTP 410` | Pairing code expired — generate a new one |
 | Device never ONLINE | Did not tap **Start gateway**; app killed by battery optimizer |
 | SMS not sending | Deny SMS permission; no SIM; dual-SIM default off |
 | Falls back to Twilio/MSG91 | No ONLINE gateway — start the service |

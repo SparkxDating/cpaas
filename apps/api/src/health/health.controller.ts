@@ -22,6 +22,7 @@ export class HealthController {
         verifySend: "POST /v1/verify/send",
         messages: "POST /v1/messages",
         deviceRegister: "POST /v1/device/register",
+        devicePair: "POST /v1/device/pair",
       },
     };
   }

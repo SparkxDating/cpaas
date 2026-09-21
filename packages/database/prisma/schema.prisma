@@ -380,6 +380,7 @@ model Project {
   usageRecords   UsageRecord[]
   otpTemplates   OtpTemplate[]
   devices        Device[]
+  pairings       DevicePairing[]
   logs           RequestLog[]
 
   @@unique([organizationId, slug])
@@ -869,6 +870,23 @@ model Device {
 
   @@index([projectId, status])
   @@map("devices")
+}
+
+model DevicePairing {
+  id             String    @id @default(cuid())
+  projectId      String
+  codeHash       String    @unique
+  codePrefix     String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  usedByDeviceId String?
+  apiBaseHint    String?
+  createdAt      DateTime  @default(now())
+
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, expiresAt])
+  @@map("device_pairings")
 }
 
 model DeviceOutbox {

@@ -24,6 +24,8 @@ type Message = {
   body: string | null;
   channel: string;
   status: string;
+  direction?: string;
+  deviceId?: string | null;
   providerMessageId: string | null;
   errorMessage: string | null;
   createdAt: string;
@@ -137,6 +139,7 @@ export default function MessagesPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={statusTone(m.status)}>{m.status}</Badge>
                   <Badge tone="blue">{m.channel}</Badge>
+                  {m.direction === "INBOUND" && <Badge>IN</Badge>}
                   <span className="font-mono text-sm">{m.toNumber}</span>
                 </div>
                 <span className="text-xs text-slate-500">

@@ -95,7 +95,15 @@ export class AdminController {
   }
 
   @Get("devices")
-  devices() {
+  async devices() {
+    const cutoff = new Date(Date.now() - 2 * 60_000);
+    await this.prisma.device.updateMany({
+      where: {
+        status: "ONLINE",
+        OR: [{ lastHeartbeatAt: null }, { lastHeartbeatAt: { lt: cutoff } }],
+      },
+      data: { status: "OFFLINE" },
+    });
     return this.prisma.device
       .findMany({
         take: 100,

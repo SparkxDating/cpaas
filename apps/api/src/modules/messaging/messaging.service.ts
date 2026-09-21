@@ -107,10 +107,10 @@ export class MessagingService {
             ? MessageStatus.FAILED
             : result.status === "sent"
               ? MessageStatus.SENT
-              : MessageStatus.QUEUED,
+              : MessageStatus.SENDING,
         priceMinor: decision.costMinor,
         currency: "USD",
-        sentAt: result.status === "failed" ? null : new Date(),
+        sentAt: result.status === "sent" ? new Date() : null,
         errorMessage:
           result.status === "failed"
             ? String(
@@ -151,7 +151,11 @@ export class MessagingService {
 
     await this.enqueueWebhook(
       input.projectId,
-      result.status === "failed" ? "message.failed" : "message.sent",
+      result.status === "failed"
+        ? "message.failed"
+        : result.status === "sent"
+          ? "message.sent"
+          : "message.queued",
       updated
     );
 

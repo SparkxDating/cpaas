@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiSecurity, ApiTags } from "@nestjs/swagger";
 import {
   IsArray,
@@ -13,6 +13,7 @@ import {
 import { Type } from "class-transformer";
 import { AppError } from "@cpaas/common";
 import { CurrentAuth } from "../../common/decorators/current-auth.decorator";
+import { Public } from "../../common/decorators/public.decorator";
 import type { AuthContext } from "../../common/guards/auth.guard";
 import { DevicesService } from "./devices.service";
 
@@ -23,6 +24,40 @@ class RegisterDeviceDto {
   @IsOptional()
   @IsString()
   projectId?: string;
+
+  @IsOptional()
+  @IsString()
+  appVersion?: string;
+
+  @IsOptional()
+  @IsString()
+  osVersion?: string;
+
+  @IsOptional()
+  @IsString()
+  model?: string;
+
+  @IsOptional()
+  @IsString()
+  manufacturer?: string;
+}
+
+class CreatePairingDto {
+  @IsOptional()
+  @IsString()
+  projectId?: string;
+
+  @IsOptional()
+  @IsString()
+  apiBaseHint?: string;
+}
+
+class PairDeviceDto {
+  @IsString()
+  code!: string;
+
+  @IsString()
+  name!: string;
 
   @IsOptional()
   @IsString()
@@ -118,8 +153,33 @@ export class DevicesController {
 
   @ApiBearerAuth()
   @ApiSecurity("api-key")
+  @Get("lan-ips")
+  @ApiOperation({ summary: "LAN IPv4 addresses of this API host (for phone pairing)" })
+  lanIps() {
+    return this.devices.lanIps();
+  }
+
+  @ApiBearerAuth()
+  @ApiSecurity("api-key")
+  @Post("pairing-codes")
+  @ApiOperation({ summary: "Create a short-lived pairing code for the Android gateway" })
+  createPairing(@CurrentAuth() auth: AuthContext, @Body() body: CreatePairingDto) {
+    const projectId = body.projectId ?? auth.projectId;
+    if (!projectId) throw new AppError("project_required", "projectId required", 400);
+    return this.devices.createPairing(projectId, body.apiBaseHint);
+  }
+
+  @Public()
+  @Post("pair")
+  @ApiOperation({ summary: "Pair Android gateway using a dashboard pairing code" })
+  pair(@Body() body: PairDeviceDto) {
+    return this.devices.pairWithCode(body);
+  }
+
+  @ApiBearerAuth()
+  @ApiSecurity("api-key")
   @Post("register")
-  @ApiOperation({ summary: "Register Android SMS gateway device" })
+  @ApiOperation({ summary: "Register Android SMS gateway device with an API key" })
   register(@CurrentAuth() auth: AuthContext, @Body() body: RegisterDeviceDto) {
     const projectId = body.projectId ?? auth.projectId;
     if (!projectId) throw new AppError("project_required", "projectId required", 400);
@@ -158,6 +218,32 @@ export class DevicesController {
   inbox(@CurrentAuth() auth: AuthContext, @Body() body: InboxDto) {
     if (!auth.deviceId) throw new AppError("device_auth_required", "Use X-Device-Token", 401);
     return this.devices.pushInbox(auth.deviceId, body.messages);
+  }
+
+  @ApiBearerAuth()
+  @ApiSecurity("api-key")
+  @Post(":id/disable")
+  disable(
+    @CurrentAuth() auth: AuthContext,
+    @Param("id") id: string,
+    @Query("projectId") projectId?: string
+  ) {
+    const pid = projectId ?? auth.projectId;
+    if (!pid) throw new AppError("project_required", "projectId required", 400);
+    return this.devices.setDisabled(pid, id, true);
+  }
+
+  @ApiBearerAuth()
+  @ApiSecurity("api-key")
+  @Post(":id/enable")
+  enable(
+    @CurrentAuth() auth: AuthContext,
+    @Param("id") id: string,
+    @Query("projectId") projectId?: string
+  ) {
+    const pid = projectId ?? auth.projectId;
+    if (!pid) throw new AppError("project_required", "projectId required", 400);
+    return this.devices.setDisabled(pid, id, false);
   }
 
   @ApiBearerAuth()
